@@ -74,7 +74,7 @@ Projeyi yerel ortamınızda çalıştırmak için **Docker** ve **Git** kurulu o
 
 ```bash
 # 1. Projeyi klonlayın
-git clone [https://github.com/KULLANICI_ADINIZ/ai-video-platform.git](https://github.com/KULLANICI_ADINIZ/ai-video-platform.git)
+git clone [https://github.com/Berkgydn/ai-video-platform.git](https://github.com/Berkgydn/ai-video-platform.git)
 cd ai-video-platform
 
 # 2. Örnek çevre değişkenlerini ayarlayın
