@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Environment Variables (GÜVENLİK İÇİN ÇOK ÖNEMLİ)
+.env
+.env.local
+
+# Frontend (Node)
+node_modules/
+dist/
+build/
+.DS_Store
+
+# Docker Volumes & Data (Veritabanı ve Medya dosyaları gitmemeli)
+data/
+db_data/
+media/
+
+# AI Models (Model dosyaları GB'larca tutar, Git'e atılmaz)
+ai_models/custom_tr_model/
+*.pt
+*.bin
+*.pth
+
+# IDE
+.vscode/
+.idea/
