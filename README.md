@@ -82,3 +82,11 @@ cp .env.example .env
 
 # 3. Docker konteynerlerini ayağa kaldırın
 docker-compose up --build
+
+#Servisler şu portlarda çalışacaktır:
+
+Frontend: http://localhost:5173
+
+Backend API: http://localhost:8000
+
+API Docs: http://localhost:8000/docs
