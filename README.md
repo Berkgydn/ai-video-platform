@@ -8,7 +8,7 @@
 
 **Production-grade standartlarında geliştirilen, yapay zeka destekli video altyazı, düzenleme ve dublaj platformu.**
 
-Bu proje, yerel olarak çalışan gelişmiş Speech-to-Text modellerini (OpenAI Whisper) modern bir web arayüzü ile birleştirerek, içerik üreticileri için uçtan uca bir altyazı yönetim sistemi sunar.
+Bu proje, yerel olarak çalışan gelişmiş Speech-to-Text modellerini (OpenAI Whisper) modern bir web arayüzü ile birleştirerek, içerik üreticileri için uçtan uca bir altyazı yönetim ve dublaj sistemi sunar.
 
 ---
 
@@ -17,29 +17,51 @@ Bu proje, yerel olarak çalışan gelişmiş Speech-to-Text modellerini (OpenAI 
 Bu platform sadece bir "wrapper" (sarmalayıcı) değil, ölçeklenebilir bir **SaaS (Software as a Service)** mimarisi üzerine inşa edilmiştir.
 
 ### Temel Prensipler:
-1.  **Strategy Pattern (AI Engine Agnostic):** Transkripsiyon motoru soyutlanmıştır. Şu anda yerel çalışan (Dockerize edilmiş) özel modeller kullanılmaktadır, ancak sistem tek bir konfigürasyon değişikliği ile Cloud API'lere (OpenAI, Google STT) geçiş yapabilecek esneklikte tasarlanmıştır.
+1.  **Strategy Pattern (AI Engine Agnostic):** Transkripsiyon motoru soyutlanmıştır. Sistem, yerel modellerden (Whisper) Cloud API'lere (OpenAI, Google STT) tek bir konfigürasyonla geçiş yapabilir.
 2.  **Language Agnostic Design:** Veritabanı ve iş mantığı, "tek dil" sınırlamasından kurtarılmıştır. Çoklu dil desteği, çapraz çeviri ve dublaj senaryoları için zemin hazırdır.
 3.  **Modern Frontend Deneyimi:** Klasik template yapıları yerine, React ve Tailwind CSS ile güçlendirilmiş, Single Page Application (SPA) mantığında çalışan dinamik bir "Altyazı Editörü" sunar.
 
 ---
 
-## 🚀 Özellikler (Yol Haritası)
+## 🗺️ Detaylı Yol Haritası (Master Plan)
 
-### 🟢 Faz 1: MVP - Core Transcription (Şu Anki Odak)
-- [x] **Konteynerizasyon:** Tamamen Dockerize edilmiş geliştirme ortamı.
-- [ ] **Video Ingestion:** Sürükle-bırak video yükleme ve güvenli depolama.
-- [ ] **AI İşleme:** Yerel Whisper modeli ile GPU/CPU tabanlı ses-metin dönüşümü.
-- [ ] **Akıllı Editör:** Videoyla tam senkronize çalışan, dalga formu (waveform) destekli altyazı düzenleme arayüzü.
-- [ ] **SRT Export:** Standartlara uygun altyazı dosyası çıktısı.
+### ✅ Faz 1: Temel Altyapı ve Veri Akışı (Tamamlandı)
+*Projenin üzerine inşa edileceği sağlam zemin.*
+- [x] **Docker Orkestrasyonu:** Backend (FastAPI), Frontend (React) ve Veritabanı (Postgres) servislerinin izole konteynerlerde ayağa kaldırılması.
+- [x] **Veritabanı Mimarisi:** Videolar, altyazılar ve projeler için ilişkisel tabloların (SQLAlchemy/Async) tasarlanması.
+- [x] **Video Ingestion:** Büyük dosyaların (MP4/MKV) stream edilerek yüklenmesi ve güvenli depolanması.
+- [x] **Video Yönetimi (CRUD):** Yükleme, listeleme, silme (Disk + DB) işlemlerinin tamamlanması.
+- [x] **Video Oynatma:** Statik dosya sunucusu yapılandırması ve tarayıcı entegrasyonu.
+- [x] **Frontend Dashboard:** Kullanıcı arayüzü iskeleti ve API servis katmanı.
 
-### 🟡 Faz 2: Globalleşme (Planlanan)
-- [ ] Çoklu dil desteği ve otomatik çeviri.
-- [ ] Cloud API entegrasyonları (Hybrid Architecture).
-- [ ] Kullanıcı rolleri ve proje yönetimi.
+### 🚧 Faz 2: AI Motoru ve Transkripsiyon (Sıradaki Adım)
+*Videonun sese, sesin metne dönüştüğü aşama.*
+- [x] **Whisper Entegrasyonu:** OpenAI Whisper modelinin projeye eklenmesi ve model yönetimi.
+- [x] **Ses Ayrıştırma (Audio Extraction):** FFmpeg ile videolardan ses kanalının (WAV/MP3) izole edilmesi.
+- [x] **Asenkron İş Kuyruğu:** Uzun süren AI işlemleri için `Celery` ve `Redis` entegrasyonu.
+- [x] **Inference & Storage:** Sesin metne çevrilmesi ve zaman damgalı (timestamped) verinin JSONB olarak veritabanına işlenmesi.
 
-### 🔴 Faz 3: Dublaj (Vizyon)
-- [ ] Text-to-Speech (TTS) entegrasyonu.
-- [ ] Orijinal sesin silinip (vocal removal), AI sesinin senkronize edilmesi.
+### 🟡 Faz 3: Akıllı Altyazı Editörü
+*Kullanıcı etkileşimi ve düzenleme.*
+- [ ] **Waveform Görselleştirmesi:** `wavesurfer.js` ile ses dalgalarının çizilmesi.
+- [ ] **İnteraktif Bloklar:** Zaman kaydırma, metin düzenleme ve karaoke efekti.
+- [ ] **SRT/VTT Export:** Standart formatlarda çıktı alma.
+- [ ] **Burn-in Subtitles:** Altyazının videoya kalıcı olarak gömülmesi (Hardcoding).
+
+### 🟡 Faz 4: Globalleşme (Çeviri)
+- [ ] **Dil Tespiti:** Kaynak dilin otomatik algılanması.
+- [ ] **AI Çeviri:** Altyazıların LLM (GPT/Llama) desteğiyle diğer dillere çevrilmesi.
+- [ ] **Split View Editor:** Orijinal ve hedef dilin yan yana düzenlenmesi.
+
+### 🔴 Faz 5: AI Dublaj (Vizyon)
+- [ ] **TTS (Text-to-Speech):** Çevrilen metnin sese dönüştürülmesi.
+- [ ] **Voice Cloning:** Orijinal konuşmacının ses tonunun kopyalanması.
+- [ ] **Vocal Removal:** Arka plan müziğini koruyarak orijinal konuşmanın silinmesi.
+- [ ] **Audio Ducking & Mixing:** Yeni sesin videoya montajlanması.
+
+### 🔴 Faz 6: Ticarileştirme (SaaS)
+- [ ] **Auth:** JWT tabanlı kimlik doğrulama.
+- [ ] **GPU Deployment:** Sistemin bulut GPU sunucularına taşınması.
 
 ---
 
@@ -51,20 +73,18 @@ Proje, endüstri standartlarında modern teknolojiler kullanılarak geliştirilm
 * **Python 3.10+**: Ana geliştirme dili.
 * **FastAPI**: Yüksek performanslı, asenkron REST API framework'ü.
 * **SQLAlchemy (Async)**: Modern ORM yapısı.
-* **Celery & Redis**: Uzun süren video işleme görevleri için asenkron kuyruk yönetimi.
-* **FFmpeg**: Video ve ses manipülasyonu.
 * **OpenAI Whisper**: Transkripsiyon çekirdeği.
+* **FFmpeg**: Video/Ses işleme ve format manipülasyonu.
+* **Celery & Redis (Planlanan)**: Asenkron görev kuyruğu.
 
 ### Frontend
 * **React (Vite)**: Hızlı ve modüler UI geliştirme.
 * **Tailwind CSS**: Modern ve duyarlı (responsive) tasarım sistemi.
-* **Zustand**: Hafif ve güçlü State yönetimi.
 * **Axios**: API iletişimi.
 
 ### DevOps & Database
 * **Docker & Docker Compose**: Tüm servislerin orkestrasyonu.
 * **PostgreSQL**: Güvenilir ilişkisel veritabanı.
-* **JSONB**: Altyazı verilerinin yüksek performanslı saklanması için.
 
 ---
 

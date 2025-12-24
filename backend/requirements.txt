@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+alembic
+python-multipart
+psycopg2-binary
+httpx
+# AI Core
+torch
+numpy
+ffmpeg-python
+# Hugging Face Transformers (Modelimiz fine-tuned)
+transformers
+accelerate
+safetensors
+optimum

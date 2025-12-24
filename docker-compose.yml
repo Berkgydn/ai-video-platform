@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # --- BACKEND (FastAPI) ---
+  backend:
+    build: ./backend
+    container_name: ai_backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+      - ./data/media:/app/media
+      - ./ai_models:/app/ai_models
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - ai-network
+
+  # --- FRONTEND (React + Vite) ---
+  frontend:
+    build: ./frontend
+    container_name: ai_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+      - ai-network
+
+  # --- DATABASE (PostgreSQL) ---
+  db:
+    image: postgres:15-alpine
+    container_name: ai_db
+    volumes:
+      - ./data/db_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    networks:
+      - ai-network
+
+networks:
+  ai-network:
+    driver: bridge
