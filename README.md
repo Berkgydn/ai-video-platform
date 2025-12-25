@@ -43,10 +43,9 @@ Bu platform sadece bir "wrapper" (sarmalayıcı) değil, ölçeklenebilir bir **
 
 ### 🟡 Faz 3: Akıllı Altyazı Editörü
 *Kullanıcı etkileşimi ve düzenleme.*
-- [ ] **Waveform Görselleştirmesi:** `wavesurfer.js` ile ses dalgalarının çizilmesi.
-- [ ] **İnteraktif Bloklar:** Zaman kaydırma, metin düzenleme ve karaoke efekti.
-- [ ] **SRT/VTT Export:** Standart formatlarda çıktı alma.
-- [ ] **Burn-in Subtitles:** Altyazının videoya kalıcı olarak gömülmesi (Hardcoding).
+- [x] **Waveform Görselleştirmesi:** `wavesurfer.js` ile ses dalgalarının çizilmesi.
+- [x] **İnteraktif Bloklar:** Zaman kaydırma, metin düzenleme ve karaoke efekti.
+- [x] **SRT/VTT Export:** Standart formatlarda çıktı alma.
 
 ### 🟡 Faz 4: Globalleşme (Çeviri)
 - [ ] **Dil Tespiti:** Kaynak dilin otomatik algılanması.

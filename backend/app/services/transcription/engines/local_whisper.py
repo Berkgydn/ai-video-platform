@@ -11,31 +11,35 @@ class LocalWhisperTranscriber(BaseTranscriber):
         print(f"🤖 Özel Model Yükleniyor: {MODEL_DIR}")
         
         # Cihaz kontrolü
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        self.device_avail = torch.cuda.is_available()
+        device = "cuda:0" if self.device_avail else "cpu"
+        torch_dtype = torch.float16 if self.device_avail else torch.float32
+
+        print(f"⚙️ Çalışma Ortamı: {'GPU (Hızlı) 🚀' if self.device_avail else 'CPU (Yavaş) 🐢'}")
+
+        # --- BELLEK AYARLARI ---
+        # 6GB VRAM için Batch Size'ı 1'e çekiyoruz. 
+        # Bu, GPU belleğinin patlamasını engeller.
+        optimal_batch_size = 1 if self.device_avail else 1
 
         try:
-            # 1. Pipeline'ı başlat
             self.pipe = pipeline(
                 "automatic-speech-recognition",
                 model=MODEL_DIR,
                 tokenizer=MODEL_DIR,
                 chunk_length_s=30,
-                batch_size=8,
+                batch_size=optimal_batch_size, 
                 device=device,
                 torch_dtype=torch_dtype,
             )
             
-            # __init__ içindeki düzeltmeyi de koruyoruz (Çifte dikiş)
             if self.pipe.model.generation_config is not None:
                 eos_id = self.pipe.model.generation_config.eos_token_id
                 if isinstance(eos_id, list):
                     self.pipe.model.generation_config.eos_token_id = eos_id[0]
-                
-                # Forced decoder ids temizliği
                 self.pipe.model.generation_config.forced_decoder_ids = None
 
-            print("✅ Model Başarıyla Yüklendi! (Hugging Face Transformers)")
+            print(f"✅ Model Yüklendi! (Batch Size: {optimal_batch_size})")
             
         except Exception as e:
             print(f"❌ Model Yükleme Hatası: {e}")
@@ -47,15 +51,24 @@ class LocalWhisperTranscriber(BaseTranscriber):
 
         print(f"🎤 Transkripsiyon başladı: {audio_path}")
         
-        # ---> KESİN ÇÖZÜM BURADA <---
-        # Config dosyasını değil, buraya yazdığımız değerleri kullanmaya zorluyoruz.
+        # --- DOĞRULUK vs BELLEK DENGESİ ---
+        # 6GB VRAM için num_beams=3 idealdir. 5 fazla gelebilir.
+        beam_count = 3 if self.device_avail else 1
+
         generate_kwargs = {
             "language": "turkish",
             "task": "transcribe",
             "forced_decoder_ids": None,
-            "eos_token_id": 50257,  # <--- KRİTİK EKLEME: Listeyi ezip Integer veriyoruz
-            "pad_token_id": 50257   # <--- KRİTİK EKLEME
+            "eos_token_id": 50257,
+            "pad_token_id": 50257,
+            
+            "num_beams": beam_count, 
+            "do_sample": False,
+            "length_penalty": 1.0,
+            "early_stopping": True
         }
+
+        print(f"📊 Beam Size: {beam_count} (GPU: {self.device_avail})")
 
         try:
             prediction = self.pipe(
@@ -64,6 +77,10 @@ class LocalWhisperTranscriber(BaseTranscriber):
                 generate_kwargs=generate_kwargs
             )
         except Exception as e:
+            # Hata durumunda CUDA belleğini temizlemeyi dene
+            if "CUDA out of memory" in str(e):
+                print("⚠️ CUDA Belleği yetmedi! Torch cache temizleniyor...")
+                torch.cuda.empty_cache()
             print(f"🚨 Pipeline Hatası Detayı: {str(e)}")
             raise e
         

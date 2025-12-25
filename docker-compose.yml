@@ -5,6 +5,8 @@ services:
   backend:
     build: ./backend
     container_name: ai_backend
+    # GPU'nun aktif olması için restart gerekebilir, o yüzden always diyoruz
+    restart: always 
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
@@ -18,6 +20,16 @@ services:
       - db
     networks:
       - ai-network
+    # ---> (GPU AKTİVASYONU) <---
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1 
+              capabilities: [gpu]
+    environment:
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
   # --- FRONTEND (React + Vite) ---
   frontend:
