@@ -33,10 +33,8 @@ class LocalWhisperTranscriber(BaseTranscriber):
                 torch_dtype=torch_dtype,
             )
             
+            # Generation config ayarlarını güvenli hale getirme
             if self.pipe.model.generation_config is not None:
-                eos_id = self.pipe.model.generation_config.eos_token_id
-                if isinstance(eos_id, list):
-                    self.pipe.model.generation_config.eos_token_id = eos_id[0]
                 self.pipe.model.generation_config.forced_decoder_ids = None
 
             print(f"✅ Model Yüklendi! (Batch Size: {optimal_batch_size})")
@@ -45,22 +43,28 @@ class LocalWhisperTranscriber(BaseTranscriber):
             print(f"❌ Model Yükleme Hatası: {e}")
             raise e
 
-    def transcribe(self, audio_path: str):
+    # DEĞİŞİKLİK 1: **kwargs eklendi.
+    # Artık 'language' parametresi gelse bile hata vermez, kwargs içinde tutulur.
+    def transcribe(self, audio_path: str, **kwargs):
         if not os.path.exists(audio_path):
             raise FileNotFoundError(f"Ses dosyası bulunamadı: {audio_path}")
 
+        # Gelen dil parametresini sadece bilgi amaçlı logluyoruz, kullanmıyoruz.
+        requested_lang = kwargs.get('language', 'Yok')
         print(f"🎤 Transkripsiyon başladı: {audio_path}")
+        print(f"ℹ️ Servis dili '{requested_lang}' istedi ancak biz OTOMATİK ALGILAMA kullanacağız.")
         
         # --- DOĞRULUK vs BELLEK DENGESİ ---
         # 6GB VRAM için num_beams=3 idealdir. 5 fazla gelebilir.
         beam_count = 3 if self.device_avail else 1
 
+        # DEĞİŞİKLİK 2: language parametresi YOK. Model sesi dinleyip kendi bulacak.
         generate_kwargs = {
-            #"language": "turkish",
             "task": "transcribe",
-            "forced_decoder_ids": None,
-            "eos_token_id": 50257,
-            "pad_token_id": 50257,
+            "forced_decoder_ids": None, # Oto algılama için kritik
+            # Sabit 50257 yerine dinamik ID kullanıyoruz (Daha güvenli)
+            "eos_token_id": self.pipe.tokenizer.eos_token_id, 
+            "pad_token_id": self.pipe.tokenizer.pad_token_id, 
             
             "num_beams": beam_count, 
             "do_sample": False,
@@ -80,7 +84,8 @@ class LocalWhisperTranscriber(BaseTranscriber):
             # Hata durumunda CUDA belleğini temizlemeyi dene
             if "CUDA out of memory" in str(e):
                 print("⚠️ CUDA Belleği yetmedi! Torch cache temizleniyor...")
-                torch.cuda.empty_cache()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
             print(f"🚨 Pipeline Hatası Detayı: {str(e)}")
             raise e
         

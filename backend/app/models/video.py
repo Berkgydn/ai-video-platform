@@ -20,6 +20,14 @@ class Video(Base):
     file_path = Column(String, nullable=False) # Diskteki konumu: /media/video.mp4
     duration = Column(Float, nullable=True)
     status = Column(String, default=VideoStatus.UPLOADED)
+    
+    # ---> YENİ: Videonun orijinal dili (Örn: 'es', 'en', 'tr')
+    # Varsayılan 'tr' kalsın ama frontend'den ne gelirse o yazılacak.
+    source_language = Column(String(5), default="tr") 
+    
+    # Hedef diller (Çevrilmesi istenenler)
+    target_languages = Column(JSONB, default=list) 
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # İlişkiler

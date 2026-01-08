@@ -7,7 +7,7 @@ python-multipart
 psycopg2-binary
 httpx
 # AI Core
-torch
+#torch
 numpy
 ffmpeg-python
 # Hugging Face Transformers (Modelimiz fine-tuned)
@@ -17,3 +17,6 @@ safetensors
 optimum
 #Api için
 openai
+
+
+requests

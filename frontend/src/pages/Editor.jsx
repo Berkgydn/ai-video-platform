@@ -9,9 +9,9 @@ import {
   Save,
   Volume2,
   VolumeX,
-  Maximize2,
   SkipBack,
   SkipForward,
+  Globe, 
 } from "lucide-react";
 
 // --- FORMAT YARDIMCILARI ---
@@ -32,14 +32,28 @@ const formatSRTTime = (seconds) => {
   return `${timeString},${ms}`;
 };
 
+// Desteklenen diller
+const LANGUAGE_OPTIONS = {
+  tr: { label: "Türkçe", flag: "🇹🇷" },
+  en: { label: "English", flag: "🇺🇸" },
+  de: { label: "Deutsch", flag: "🇩🇪" },
+  fr: { label: "Français", flag: "🇫🇷" },
+  es: { label: "Español", flag: "🇪🇸" },
+  it: { label: "Italiano", flag: "🇮🇹" },
+};
+
 export default function Editor() {
   const { id } = useParams();
   
-  // --- STATE YÖNETİMİ (Gerçek Veriler) ---
+  // --- STATE YÖNETİMİ ---
   const [video, setVideo] = useState(null);
   const [subtitles, setSubtitles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Dil Seçimi State'i
+  const [currentLang, setCurrentLang] = useState('tr');
+  const [availableLangs, setAvailableLangs] = useState([]); 
 
   // Player States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -51,30 +65,56 @@ export default function Editor() {
   const videoRef = useRef(null);
   const activeSubtitleRef = useRef(null);
 
-  // --- VERİ YÜKLEME (API) ---
+  // --- ALTYAZI ÇEKME ---
+  const loadSubtitles = async (videoId, langCode) => {
+    try {
+      // Dil parametresiyle istek atıyoruz
+      const subRes = await videoService.getSubtitles(videoId, langCode);
+      
+      // Gelen veriyi güvenli şekilde al
+      const subs = subRes.data.content || subRes.data || [];
+      setSubtitles(subs);
+      setCurrentLang(langCode);
+
+    } catch (err) {
+      console.error(`${langCode} altyazısı yüklenemedi:`, err);
+      setSubtitles([]); 
+    }
+  };
+
+  // --- VERİ YÜKLEME (İlk Açılış) ---
   useEffect(() => {
-    const loadData = async () => {
+    const loadInitialData = async () => {
       try {
-        const [vidRes, subRes] = await Promise.all([
-          videoService.getVideo(id),
-          videoService.getSubtitles(id)
-        ]);
-        setVideo(vidRes.data);
-        // Backend bazen obje bazen liste dönebilir, kontrol ediyoruz:
-        setSubtitles(subRes.data.content || subRes.data || []); 
+        const vidRes = await videoService.getVideo(id);
+        const videoData = vidRes.data;
+        setVideo(videoData);
+        
+        // --- DİL LİSTESİNİ OLUŞTURMA (DÜZELTME) ---
+        // Kaynak dil ve hedef dilleri birleştirip TEKİL (Unique) liste yapıyoruz.
+        // Set kullanarak aynı dilin (örn: tr) iki kere eklenmesini engelliyoruz.
+        const source = videoData.source_language || 'tr';
+        const targets = videoData.target_languages || [];
+        
+        // Set ile duplicate'leri temizle: [source, ...targets]
+        const uniqueLangs = [...new Set([source, ...targets])];
+        setAvailableLangs(uniqueLangs);
+
+        // Varsayılan olarak KAYNAK dili (veya tr) yükle
+        // Eğer daha önce seçilmiş bir dil yoksa kaynağı seç
+        await loadSubtitles(id, source);
+
       } catch (err) {
-        console.error("Veri yükleme hatası:", err);
-        alert("Video veya altyazı yüklenemedi!");
+        console.error("Video yükleme hatası:", err);
+        alert("Video yüklenemedi!");
       } finally {
         setLoading(false);
       }
     };
-    loadData();
+    loadInitialData();
   }, [id]);
 
   // --- OYNATICI MANTIĞI ---
-  
-  // Aktif altyazıya otomatik scroll
   useEffect(() => {
     if (activeSubtitleRef.current) {
       activeSubtitleRef.current.scrollIntoView({
@@ -148,10 +188,9 @@ export default function Editor() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await videoService.updateSubtitles(id, subtitles);
-      // Başarılı olduğunu kullanıcıya hissettirmek için kısa bir bekleme (opsiyonel)
+      await videoService.updateSubtitles(id, subtitles, currentLang);
       await new Promise(r => setTimeout(r, 500)); 
-      alert("✅ Değişiklikler başarıyla kaydedildi!");
+      alert(`✅ ${LANGUAGE_OPTIONS[currentLang]?.label || currentLang} altyazısı kaydedildi!`);
     } catch (err) {
       console.error(err);
       alert("❌ Kayıt başarısız!");
@@ -172,7 +211,7 @@ export default function Editor() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${video?.title || 'video'}.srt`;
+    a.download = `${video?.title || 'video'}_${currentLang}.srt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -190,13 +229,11 @@ export default function Editor() {
   const currentSubtitle = subtitles.find((sub) => currentTime >= sub.start && currentTime <= sub.end);
   const progress = duration ? (currentTime / duration) * 100 : 0;
   
-  // Backend'den gelen dosya yolunu düzeltme (/app/media -> /media)
-  // Docker içinde /app/media, dışarıya /media olarak sunuluyor.
   const videoSrc = video ? `http://localhost:8000${video.file_path.replace('/app', '')}` : '';
 
   return (
     <div className="h-screen flex flex-col bg-[#08080c] overflow-hidden font-sans text-slate-200">
-      {/* --- HEADER: Frosted Glass --- */}
+      {/* --- HEADER --- */}
       <header className="h-16 bg-black/40 backdrop-blur-xl border-b border-white/5 px-6 flex justify-between items-center z-20 shrink-0">
         <div className="flex items-center gap-4">
           <Link to="/dashboard" className="text-white/50 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium group">
@@ -210,20 +247,48 @@ export default function Editor() {
         </div>
 
         <div className="flex gap-3">
+          {/* --- DIL SEÇİCİ (SELECT BOX) --- */}
+          <div className="relative group">
+            <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm font-medium text-white cursor-pointer hover:bg-white/10 transition-colors">
+              <Globe className="w-4 h-4 text-blue-400" />
+              {/* Seçili dilin labelını veya kodunu göster */}
+              <span>
+                {LANGUAGE_OPTIONS[currentLang]?.flag} {LANGUAGE_OPTIONS[currentLang]?.label || currentLang.toUpperCase()}
+              </span>
+              <svg className="w-4 h-4 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </div>
+            
+            {/* Dropdown Menu */}
+            <div className="absolute top-full right-0 mt-2 w-48 bg-[#1a1a23] border border-white/10 rounded-xl shadow-xl overflow-hidden hidden group-hover:block z-50">
+               {availableLangs.map(langCode => (
+                 <button
+                   key={langCode}
+                   onClick={() => loadSubtitles(id, langCode)} // ID ve Dil Kodu gönderiyoruz
+                   className={`w-full text-left px-4 py-3 text-sm flex items-center gap-3 hover:bg-white/5 transition-colors ${currentLang === langCode ? "bg-blue-500/10 text-blue-400" : "text-slate-300"}`}
+                 >
+                   <span className="text-lg">{LANGUAGE_OPTIONS[langCode]?.flag || "🏳️"}</span>
+                   <span className="font-medium">{LANGUAGE_OPTIONS[langCode]?.label || langCode.toUpperCase()}</span>
+                   {currentLang === langCode && <span className="ml-auto text-blue-400">✓</span>}
+                 </button>
+               ))}
+            </div>
+          </div>
+
           <button
             onClick={handleDownloadSRT}
             className="px-4 py-2 text-xs font-medium text-white/70 border border-white/10 rounded-lg hover:bg-white/5 hover:border-white/20 hover:text-white transition-all flex items-center gap-2"
           >
             <Download className="w-4 h-4" />
-            SRT İndir
+            <span className="hidden sm:inline">SRT İndir</span>
           </button>
+          
           <button
             onClick={handleSave}
             disabled={saving}
             className="px-5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-500 rounded-lg hover:from-blue-500 hover:to-blue-400 transition-all flex items-center gap-2 shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            {saving ? "Kaydediliyor..." : "Kaydet"}
+            {saving ? "..." : "Kaydet"}
           </button>
         </div>
       </header>
@@ -233,17 +298,14 @@ export default function Editor() {
         {/* LEFT PANEL: Video Studio */}
         <div className="flex-1 lg:w-[65%] bg-[#08080c] flex flex-col relative">
           
-          {/* Video Area with Ambient Glow */}
+          {/* Video Area */}
           <div
             className="flex-1 flex items-center justify-center p-6 lg:p-10 overflow-hidden relative"
-            onClick={togglePlay} // Videoya tıklayınca durdur/oynat
+            onClick={togglePlay}
           >
-            {/* Ambient Glow Effect */}
+            {/* Ambient Glow */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-[80%] h-[60%] bg-blue-500/20 blur-[120px] rounded-full opacity-50" />
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-[60%] h-[40%] bg-cyan-400/10 blur-[100px] rounded-full opacity-40" />
             </div>
 
             {/* Video Container */}
@@ -258,12 +320,12 @@ export default function Editor() {
                     onLoadedMetadata={handleLoadedMetadata}
                     onPlay={() => setIsPlaying(true)}
                     onPause={() => setIsPlaying(false)}
-                    controls={false} // Özel kontroller kullanıyoruz
+                    controls={false}
                     playsInline
                   />
                 )}
 
-                {/* Subtitle Overlay (Video Üzerinde) */}
+                {/* Subtitle Overlay */}
                 {currentSubtitle && (
                   <div className="absolute bottom-8 left-0 right-0 flex justify-center pointer-events-none">
                     <div className="px-5 py-2.5 bg-black/70 backdrop-blur-sm rounded-lg max-w-[80%]">
@@ -274,7 +336,7 @@ export default function Editor() {
                   </div>
                 )}
 
-                {/* Play Button Overlay (Pause durumunda görünür) */}
+                {/* Play Button Overlay */}
                 {!isPlaying && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer">
                     <div className="w-20 h-20 bg-white/10 backdrop-blur-xl rounded-full flex items-center justify-center shadow-2xl border border-white/20 hover:bg-white/20 hover:scale-105 transition-all duration-300">
@@ -304,17 +366,11 @@ export default function Editor() {
                 onChange={handleSeek}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
-              {/* Hover indicator (İsteğe bağlı) */}
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg shadow-blue-500/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                style={{ left: `calc(${progress}% - 6px)` }}
-              />
             </div>
 
             {/* Controls Row */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                {/* Time */}
                 <div className="flex items-center gap-2 text-xs font-mono">
                   <span className="text-white/90">{formatTime(currentTime)}</span>
                   <span className="text-white/30">/</span>
@@ -322,40 +378,20 @@ export default function Editor() {
                 </div>
               </div>
 
-              {/* Center Controls */}
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => skip(-5)}
-                  className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-all"
-                  title="5sn Geri"
-                >
+                <button onClick={() => skip(-5)} className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-all">
                   <SkipBack className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={togglePlay}
-                  className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-500/30 hover:scale-105"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-6 h-6 fill-white" />
-                  ) : (
-                    <Play className="w-6 h-6 fill-white ml-0.5" />
-                  )}
+                <button onClick={togglePlay} className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white flex items-center justify-center transition-all shadow-lg shadow-blue-500/30 hover:scale-105">
+                  {isPlaying ? <Pause className="w-6 h-6 fill-white" /> : <Play className="w-6 h-6 fill-white ml-0.5" />}
                 </button>
-                <button
-                  onClick={() => skip(5)}
-                  className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-all"
-                  title="5sn İleri"
-                >
+                <button onClick={() => skip(5)} className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-all">
                   <SkipForward className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Right Controls */}
               <div className="flex items-center gap-3">
-                <button
-                  onClick={toggleMute}
-                  className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center transition-all"
-                >
+                <button onClick={toggleMute} className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center transition-all">
                   {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                 </button>
               </div>
@@ -365,15 +401,16 @@ export default function Editor() {
 
         {/* RIGHT PANEL: Subtitle Editor */}
         <div className="hidden lg:flex w-[35%] bg-[#0c0c12]/80 backdrop-blur-xl border-l border-white/5 flex-col z-10">
-          {/* Panel Header */}
           <div className="p-4 bg-white/[0.02] border-b border-white/5 flex justify-between items-center shrink-0">
-            <h2 className="text-xs font-semibold text-white/50 uppercase tracking-widest">Altyazı Akışı</h2>
+            <h2 className="text-xs font-semibold text-white/50 uppercase tracking-widest flex items-center gap-2">
+               <Globe className="w-3 h-3" />
+               {LANGUAGE_OPTIONS[currentLang]?.label || currentLang} Akışı
+            </h2>
             <span className="px-2.5 py-1 bg-blue-500/20 text-blue-400 text-xs font-mono font-semibold rounded-md border border-blue-500/20">
               {subtitles.length} Satır
             </span>
           </div>
 
-          {/* Subtitle List */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 scroll-smooth scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
             {subtitles.length > 0 ? (
               subtitles.map((sub, index) => {
@@ -388,37 +425,19 @@ export default function Editor() {
                         : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
                     }`}
                   >
-                    {/* Active Indicator (Neon Line) */}
-                    <div
-                      className={`absolute left-0 top-3 bottom-3 w-0.5 rounded-full transition-all duration-300 ${
-                        isActive
-                          ? "bg-gradient-to-b from-blue-400 to-cyan-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-                          : "bg-transparent group-hover:bg-white/20"
-                      }`}
-                    />
+                    <div className={`absolute left-0 top-3 bottom-3 w-0.5 rounded-full transition-all duration-300 ${isActive ? "bg-gradient-to-b from-blue-400 to-cyan-400" : "bg-transparent group-hover:bg-white/20"}`} />
 
                     <div className="flex gap-3">
-                      {/* Time Button */}
-                      <button
-                        onClick={() => jumpToTime(sub.start)}
-                        className="flex flex-col gap-0.5 pt-0.5 select-none"
-                      >
-                        <span
-                          className={`text-xs font-mono font-semibold transition-colors ${
-                            isActive ? "text-blue-400" : "text-white/40 group-hover:text-blue-400"
-                          }`}
-                        >
+                      <button onClick={() => jumpToTime(sub.start)} className="flex flex-col gap-0.5 pt-0.5 select-none">
+                        <span className={`text-xs font-mono font-semibold transition-colors ${isActive ? "text-blue-400" : "text-white/40 group-hover:text-blue-400"}`}>
                           {formatTime(sub.start)}
                         </span>
                       </button>
 
-                      {/* Text Editor */}
                       <textarea
                         value={sub.text}
                         onChange={(e) => handleTextChange(index, e.target.value)}
-                        className={`flex-1 bg-transparent resize-none outline-none text-sm leading-relaxed min-h-[50px] transition-colors placeholder:text-white/20 ${
-                          isActive ? "text-white" : "text-white/60"
-                        }`}
+                        className={`flex-1 bg-transparent resize-none outline-none text-sm leading-relaxed min-h-[50px] transition-colors placeholder:text-white/20 ${isActive ? "text-white" : "text-white/60"}`}
                         spellCheck="false"
                       />
                     </div>
@@ -427,10 +446,10 @@ export default function Editor() {
               })
             ) : (
               <div className="flex flex-col items-center justify-center h-64 text-white/30">
-                <p className="text-sm">Altyazı bulunamadı</p>
+                <p className="text-sm">Bu dilde henüz altyazı yok.</p>
               </div>
             )}
-            <div className="h-24" /> {/* Alt boşluk */}
+            <div className="h-24" />
           </div>
         </div>
       </div>
