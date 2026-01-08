@@ -15,3 +15,5 @@ transformers
 accelerate
 safetensors
 optimum
+#Api için
+openai

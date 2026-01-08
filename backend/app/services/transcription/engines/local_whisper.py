@@ -56,7 +56,7 @@ class LocalWhisperTranscriber(BaseTranscriber):
         beam_count = 3 if self.device_avail else 1
 
         generate_kwargs = {
-            "language": "turkish",
+            #"language": "turkish",
             "task": "transcribe",
             "forced_decoder_ids": None,
             "eos_token_id": 50257,

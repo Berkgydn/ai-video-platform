@@ -1,7 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.video import Video, VideoStatus, Subtitle
 from app.services.video_manager import VideoManager
-from app.services.transcription.engines.local_whisper import LocalWhisperTranscriber
+# DÜZELTME 1: İsim çakışmasını önlemek için 'as' ile farklı bir isim verdik
+from app.services.transcription.factory import get_transcriber as create_transcriber_instance
 import json
 import traceback
 
@@ -11,7 +12,9 @@ _transcriber = None
 def get_transcriber():
     global _transcriber
     if _transcriber is None:
-        _transcriber = LocalWhisperTranscriber()
+        # DÜZELTME 2: Artık kendini değil, yukarıda import ettiğimiz fabrikayı çağırıyor
+        print("🔌 Transcriber motoru ilk kez oluşturuluyor...")
+        _transcriber = create_transcriber_instance()
     return _transcriber
 
 async def process_video_background(video_id: str, db_session_factory):
@@ -33,12 +36,11 @@ async def process_video_background(video_id: str, db_session_factory):
             # 2. Sesi ayıkla
             audio_path = VideoManager.extract_audio(video.file_path)
             
-            # 3. Transcribe et
+            # 3. Transcribe et (Singleton yapısını çağırıyoruz)
             transcriber = get_transcriber()
             segments = transcriber.transcribe(audio_path)
 
             # 4. Sonucu Altyazı tablosuna kaydet
-            # DÜZELTME: is_original=True parametresini kaldırdık.
             new_subtitle = Subtitle(
                 video_id=video.id,
                 language="tr",
